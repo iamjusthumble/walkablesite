@@ -6,7 +6,7 @@ for (const [path, title] of Object.entries(pages)) {
   let html = template.replace('<div id="root"></div>', `<div id="root">${render(path)}</div>`)
   if (!title) {
     const faqData = { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: faqs.map(([name, text]) => ({ '@type': 'Question', name, acceptedAnswer: { '@type': 'Answer', text } })) }
-    const org = { '@context': 'https://schema.org', '@type': 'Organization', name: 'Walkable', slogan: 'A little movement. A lot of good.', ...(process.env.PUBLIC_ORIGIN && { url: new URL(process.env.PUBLIC_ORIGIN).origin }) }
+    const org = { '@context': 'https://schema.org', '@type': 'Organization', name: 'Walkable', slogan: 'A little movement. A lot of good.', ...(process.env.PUBLIC_ORIGIN && { url: new URL(process.env.PUBLIC_ORIGIN).origin, logo: `${new URL(process.env.PUBLIC_ORIGIN).origin}/images/walkable-logo.png` }) }
     const json = data => JSON.stringify(data).replace(/</g, '\\u003c')
     html = html.replace('</head>', `<script type="application/ld+json">${json(org)}</script>\n<script type="application/ld+json">${json(faqData)}</script>\n</head>`)
   }

@@ -1,10 +1,9 @@
 /* ---------- Header ---------- */
 .site-header{height:88px;background:#fffefaee;backdrop-filter:saturate(1.4) blur(10px);position:sticky;top:0;z-index:50;border-bottom:1px solid #eee9f0}
 .nav-wrap{width:min(1328px,calc(100% - 80px));height:100%;margin:auto;display:flex;align-items:center;gap:30px}
-.brand{display:inline-flex;align-items:center;font-family:var(--heading);font-size:31px;font-weight:800;letter-spacing:-1.5px;line-height:1;flex-shrink:0}
-.brand-mark{width:36px;height:39px;background:var(--purple);color:white;display:grid;place-items:center;border-radius:12px;transform:rotate(-9deg);margin-right:9px}
-.brand-mark svg{transform:rotate(9deg)}
-.brand-period{color:var(--purple)}
+.brand{display:inline-flex;align-items:center;flex-shrink:0;line-height:0}
+.brand img{height:42px;width:auto;display:block}
+.brand-stacked img{height:120px}
 .navigation{display:flex;align-items:center;gap:34px;margin-inline:auto}
 .navigation a{font-size:15px;font-weight:550;position:relative;padding:12px 0}
 .navigation a:hover,.navigation a.active{color:#7a3fe0}
@@ -217,9 +216,6 @@
 .closing-banner button:hover{color:var(--deep)}
 .site-footer{padding-top:55px;padding-bottom:30px}
 .footer-top{display:flex;justify-content:space-between;gap:35px;padding-bottom:42px}
-.footer-top .brand{font-size:27px}
-.footer-top .brand-mark{width:30px;height:33px;border-radius:10px}
-.footer-top .brand-mark svg{width:23px}
 .footer-top p{font-size:15px;color:var(--muted);margin-top:14px}
 .footer-contact{display:flex;flex-wrap:wrap;gap:16px;margin-top:16px;font-size:14px}
 .footer-contact a{display:inline-flex;align-items:center;gap:6px;color:#5d2fc0;font-weight:600}
@@ -278,9 +274,8 @@
   .navigation{gap:18px}
 }
 @media(max-width:900px){
+  .brand img{height:38px}
   .nav-wrap{width:calc(100% - 48px)}
-  .brand{font-size:27px}
-  .brand-mark{width:31px;height:34px}
   .hero-copy h1{font-size:52px;letter-spacing:-2.6px}
   .hero-description{font-size:16px}
   .hero-actions .button{padding:16px 20px}
@@ -383,10 +378,9 @@
   .steps{scroll-padding-inline:20px}
 }
 @media(max-width:480px){
+  .brand img{height:34px}
+  .brand-stacked img{height:100px}
   .nav-wrap{width:calc(100% - 32px);gap:8px}
-  .brand{font-size:24px}
-  .brand-mark{width:28px;height:31px;margin-right:7px}
-  .brand-mark svg{width:22px}
   .nav-cta{padding:10px 13px;font-size:13px}
   .menu-button{padding:4px}
   .hero-actions .button{width:100%;justify-content:center}

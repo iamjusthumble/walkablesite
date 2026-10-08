@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import './App.css'
 import { faqs } from './faqs.js'
 import { mountOrb } from './orbs.js'
+import logoStacked from './assets/Logo1.png'
+import logoWordmark from './assets/Logo2.png'
 
 function Icon({ name, size = 24, ...props }) {
   const paths = {
@@ -27,7 +29,8 @@ function Icon({ name, size = 24, ...props }) {
   }
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>{paths[name] || paths.walk}</svg>
 }
-function Brand({ light = false }) { return <a href="/" className={`brand ${light ? 'light' : ''}`} aria-label="Walkable home"><span className="brand-mark"><Icon name="walk" size={27}/></span>walkable<span className="brand-period">.</span></a> }
+// Official Walkable logos: horizontal wordmark for the header, stacked logo with the shoe-print mark for the footer.
+function Brand({ stacked = false }) { return <a href="/" className={`brand ${stacked ? 'brand-stacked' : ''}`}><img src={stacked ? logoStacked : logoWordmark} alt="Walkable home" width={stacked ? 299 : 298} height={stacked ? 322 : 106}/></a> }
 function trackEvent(name, props = {}) { window.dispatchEvent(new CustomEvent('walkable:analytics', { detail: { name, props } })); if (window.plausible) window.plausible(name, { props }) }
 
 // Optional public details. Each is hidden until its approved value is set at build time.
@@ -235,7 +238,7 @@ function App({ pagePath } = {}) {
       <section id="faq" className="faq-section section-pad" aria-labelledby="faq-title"><div className="container faq-layout"><div><p className="eyebrow">A FEW THINGS YOU MIGHT BE WONDERING</p><h2 id="faq-title">Good questions.<br/><span>Straight answers.</span></h2><p>Still curious? {contactEmail ? <>Email us at <a className="inline-link" href={`mailto:${contactEmail}`}>{contactEmail}</a>.</> : 'Join the waitlist and we’ll keep you posted.'}</p></div><div className="faq-list">{faqs.map(([q, a], i) => <details key={q} onToggle={e => { if (e.currentTarget.open) trackEvent('faq_expand', { question_id: i }) }}><summary>{q}<Icon name="plus" size={19}/></summary><p>{a}</p></details>)}</div></div></section>
       <section className="closing-banner" aria-label="Join the waitlist"><div className="container"><p><Orb state="listening" size={56} className="closing-orb"/>Good things are out there.</p><button type="button" onClick={() => open('walker', 'footer')}>Let’s walk.<Icon name="arrow" size={36}/></button></div></section>
     </main>
-    <footer className="site-footer container"><div className="footer-top"><div><Brand/><p>A little movement. A lot of good.</p>{(contactEmail || socials.length > 0) && <div className="footer-contact">{contactEmail && <a href={`mailto:${contactEmail}`}><Icon name="mail" size={16}/>{contactEmail}</a>}{socials.map(([name, url]) => <a key={name} href={url} rel="noopener noreferrer" target="_blank">{name}</a>)}</div>}</div><nav aria-label="Footer navigation">{links.map(([id, label]) => <a key={id} href={`#${id}`}>{label}</a>)}<button type="button" onClick={() => open('walker', 'footer')}>Join the waitlist</button></nav></div><div className="footer-bottom"><span>© {new Date().getFullYear()} Walkable. Made for the everyday adventure.</span><div><a href="/privacy">Privacy policy</a><a href="/terms">Terms of service</a><a href="/press">Press</a><span className="footer-signoff">See you out there. <Icon name="walk" size={16}/></span></div></div></footer>
+    <footer className="site-footer container"><div className="footer-top"><div><Brand stacked/><p>A little movement. A lot of good.</p>{(contactEmail || socials.length > 0) && <div className="footer-contact">{contactEmail && <a href={`mailto:${contactEmail}`}><Icon name="mail" size={16}/>{contactEmail}</a>}{socials.map(([name, url]) => <a key={name} href={url} rel="noopener noreferrer" target="_blank">{name}</a>)}</div>}</div><nav aria-label="Footer navigation">{links.map(([id, label]) => <a key={id} href={`#${id}`}>{label}</a>)}<button type="button" onClick={() => open('walker', 'footer')}>Join the waitlist</button></nav></div><div className="footer-bottom"><span>© {new Date().getFullYear()} Walkable. Made for the everyday adventure.</span><div><a href="/privacy">Privacy policy</a><a href="/terms">Terms of service</a><a href="/press">Press</a><span className="footer-signoff">See you out there. <Icon name="walk" size={16}/></span></div></div></footer>
     {modal && <Modal track={modal} close={() => setModal(null)}/>}
   </>
 }
