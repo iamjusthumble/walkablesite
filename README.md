@@ -29,7 +29,7 @@ The build pre-renders all pages. Setting `PUBLIC_ORIGIN` also emits canonical li
 Vercel serves the pre-rendered pages and runs the waitlist API as functions in `api/waitlist/` (`server/index.js` is only for self-hosting). In the Vercel project, under **Settings → Environment Variables**, set for Production:
 
 - `SMTP_USER=walkableofficial@gmail.com`, `SMTP_PASS=<Google App Password>`, `WAITLIST_NOTIFY_EMAIL=walkableofficial@gmail.com`
-- `PUBLIC_ORIGIN=https://walkablesite.vercel.app` (or the custom domain). Signups are only accepted from this address, and it enables the sitemap, canonical links and the logo/share link in emails.
+- `PUBLIC_ORIGIN=https://www.walkableofficial.com` (the live domain; walkableofficial.com redirects to it). Signups are only accepted from this address, and it enables the sitemap, canonical links and the logo/share link in emails.
 - Storage: in **Storage → Create Database**, add **Upstash for Redis** (free tier) and connect it to the project; it adds `KV_REST_API_URL` and `KV_REST_API_TOKEN`. Without it, signups are still emailed but not stored, and repeats can't be detected.
 
 Redeploy after changing variables. Export the live list from a machine whose `.env` has the same `KV_REST_API_*` values: `npm run export:waitlist --silent > waitlist.csv`.
