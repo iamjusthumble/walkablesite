@@ -8,7 +8,7 @@ Requires Node 22.13 or newer (Node 24+ recommended).
 
 ```sh
 npm install
-npm run dev -- --host 127.0.0.1 --port 5188
+npm run dev   # http://localhost:5188 (fixed port; preview uses 4188)
 ```
 
 The development and Vite preview servers include the real waitlist API. Signups are stored in `data/waitlist.sqlite`, outside public assets and ignored by Git. No signup data is stored in browser storage.

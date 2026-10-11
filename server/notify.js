@@ -56,12 +56,13 @@ ${p('See you out there,')}<p style="margin:-12px 0 0;font-size:16px;color:#3d2e4
 // loses a signup. With no SMTP credentials configured it sends nothing.
 export function createSignupNotifier({ env = process.env, transport } = {}) {
   const team = env.WAITLIST_NOTIFY_EMAIL || DEFAULT_NOTIFY_EMAIL
-  const user = env.SMTP_USER
-  const mailer = transport || (user && env.SMTP_PASS ? nodemailer.createTransport({
+  const user = env.SMTP_USER?.trim()
+  const pass = env.SMTP_PASS?.replace(/\s+/g, '') // Google shows app passwords in groups of four
+  const mailer = transport || (user && pass ? nodemailer.createTransport({
     host: env.SMTP_HOST || 'smtp.gmail.com',
     port: Number(env.SMTP_PORT || 465),
     secure: Number(env.SMTP_PORT || 465) === 465,
-    auth: { user, pass: env.SMTP_PASS },
+    auth: { user, pass },
   }) : null)
   if (!mailer) {
     console.warn(`Waitlist emails are off: set SMTP_USER and SMTP_PASS to email new signups to ${team} and send confirmations.`)
@@ -85,6 +86,7 @@ export function createSignupNotifier({ env = process.env, transport } = {}) {
     return { team: teamSent, confirmation: confirmationSent }
   }
   notify.enabled = true
+  notify.verify = () => mailer.verify?.()
   notify.confirmations = confirmations
   return notify
 }

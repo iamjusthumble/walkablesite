@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "start": "node --env-file-if-exists=.env server/index.js",
     "test": "node --test server/waitlist.test.js",
-    "export:waitlist": "node scripts/export-waitlist.js"
+    "export:waitlist": "node scripts/export-waitlist.js",
+    "email:test": "node --env-file-if-exists=.env scripts/test-email.js"
   },
   "dependencies": {
     "nodemailer": "^10.0.16",

@@ -104,7 +104,9 @@ function WaitlistForm({ initialTrack = 'walker', context = 'in-page' }) {
     setState('loading'); setMessage('')
     try {
       const res = await fetch('/api/waitlist', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...values, track }) })
-      const data = await res.json().catch(() => ({}))
+      const data = await res.json().catch(() => null)
+      // No JSON back means the request never reached the waitlist API (wrong server, or a static host without it).
+      if (!data) { console.error(`Waitlist API unavailable at ${window.location.origin}/api/waitlist (HTTP ${res.status}). Run the site with npm run dev or npm start.`); throw Object.assign(new Error('Our signup service isn’t reachable right now. Please try again in a moment.'), { status: res.status }) }
       if (!res.ok) throw Object.assign(new Error(data.message || 'Something went wrong. Please try again.'), { status: res.status })
       setState(data.duplicate ? 'duplicate' : 'success')
       setConfirmationSent(!!data.confirmationEmail)
