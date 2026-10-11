@@ -63,6 +63,8 @@ export function createSignupNotifier({ env = process.env, transport } = {}) {
     port: Number(env.SMTP_PORT || 465),
     secure: Number(env.SMTP_PORT || 465) === 465,
     auth: { user, pass },
+    // Fail fast so a slow mail server can't hold up a signup (Vercel functions wait for the send).
+    connectionTimeout: 10000, greetingTimeout: 10000, socketTimeout: 15000,
   }) : null)
   if (!mailer) {
     console.warn(`Waitlist emails are off: set SMTP_USER and SMTP_PASS to email new signups to ${team} and send confirmations.`)

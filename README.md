@@ -20,9 +20,19 @@ PUBLIC_ORIGIN=https://your-approved-domain.example npm run build
 PUBLIC_ORIGIN=https://your-approved-domain.example npm start
 ```
 
-Set `PORT` if needed (default 4173). Deploy the Node server with `dist/`, `server/`, `package.json`, and a persistent writable volume for `WAITLIST_DB`. Do not deploy only the static bundle if signup capture is required. SQLite is appropriate for a single instance; use a managed database or form service for multi-instance/serverless hosting. Terminate HTTPS at the hosting proxy. Rate limiting uses the socket address and intentionally does not trust arbitrary forwarded headers; configure trusted client-IP handling at the edge before a proxied public launch.
+Set `PORT` if needed (default 4173). Deploy the Node server with `dist/`, `server/`, `package.json` and `package-lock.json`, run `npm ci --omit=dev` there (the server needs `nodemailer`), set the same variables as your `.env` (`SMTP_USER`, `SMTP_PASS`, `WAITLIST_NOTIFY_EMAIL`, `PUBLIC_ORIGIN`), and give it a persistent writable volume for `WAITLIST_DB`. Do not deploy only the static bundle if signup capture is required. SQLite is appropriate for a single instance; use a managed database or form service for multi-instance/serverless hosting. Terminate HTTPS at the hosting proxy. Rate limiting uses the socket address and intentionally does not trust arbitrary forwarded headers; configure trusted client-IP handling at the edge before a proxied public launch.
 
 The build pre-renders all pages. Setting `PUBLIC_ORIGIN` also emits canonical links, social-image URLs, and a sitemap. Without a confirmed domain these absolute URLs are deliberately omitted. Legal and press stub pages are noindex until approved content replaces them.
+
+## Deploying on Vercel (current live site)
+
+Vercel serves the pre-rendered pages and runs the waitlist API as functions in `api/waitlist/` (`server/index.js` is only for self-hosting). In the Vercel project, under **Settings → Environment Variables**, set for Production:
+
+- `SMTP_USER=walkableofficial@gmail.com`, `SMTP_PASS=<Google App Password>`, `WAITLIST_NOTIFY_EMAIL=walkableofficial@gmail.com`
+- `PUBLIC_ORIGIN=https://walkablesite.vercel.app` (or the custom domain). Signups are only accepted from this address, and it enables the sitemap, canonical links and the logo/share link in emails.
+- Storage: in **Storage → Create Database**, add **Upstash for Redis** (free tier) and connect it to the project; it adds `KV_REST_API_URL` and `KV_REST_API_TOKEN`. Without it, signups are still emailed but not stored, and repeats can't be detected.
+
+Redeploy after changing variables. Export the live list from a machine whose `.env` has the same `KV_REST_API_*` values: `npm run export:waitlist --silent > waitlist.csv`.
 
 ## Section URLs
 
@@ -82,6 +92,6 @@ Brand colors: `#8C52FF`, `#2E1065`, `#C9A6FF`, `#EFE6FD`. Fonts: Bricolage Grote
 5. Real-device live tracking screenshot and approved final product captures (the site no longer names a platform; iOS and Android are both described as coming). Current genuine PRD screenshots are suitable for review, not a representation of live reward availability.
 6. Confirmed launch cities, launch timing, app pricing, and vendor pricing if these should be disclosed. Current copy avoids unconfirmed promises.
 7. Optional analytics: events are emitted as `walkable:analytics` CustomEvents and forwarded to `window.plausible` when configured. No external analytics tracker is installed, and no email/name is included in events. Test provider ingestion after enabling it.
-8. Run Lighthouse and cross-browser accessibility/performance QA on the final HTTPS deployment; no unmeasured scores are claimed.
+8. Re-check on the final HTTPS deployment. Local production-build results on Oct 11, 2026: Lighthouse mobile Performance 98–100, Accessibility 100, Best Practices 100, SEO 100 (desktop Performance 98 before the latest image and font fixes); axe-core reported no WCAG 2.1 AA violations. Cross-browser testing in Safari, Firefox and on real phones hasn't been done yet.
 
 The vendor dashboard, mobile app changes, payments, and a CMS are intentionally outside this website.

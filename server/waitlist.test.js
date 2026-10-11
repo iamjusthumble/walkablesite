@@ -6,6 +6,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createWaitlistHandler as createHandler } from './waitlist.js'
 import { createSignupNotifier } from './notify.js'
+import { createRedisStore } from './redis-store.js'
+import { createSignupService } from './signup.js'
 const createWaitlistHandler = (opts = {}) => createHandler({ notify: async () => false, ...opts })
 const valid = { email: 'walker@example.com', track: 'walker', consent: true, city: 'Accra' }
 async function request(handler, payload, { method = 'POST', headers = {}, raw, ip = '127.0.0.1', url = '/api/waitlist' } = {}) {
@@ -108,4 +110,38 @@ test('confirmations can be turned off, failures are reported, and the API flags 
     assert.equal((await request(on, valid)).data.confirmationEmail, false, 'no confirmation for a duplicate')
     assert.equal((await request(off, valid)).data.confirmationEmail, false)
   } finally { on.close(); off.close() }
+})
+test('redis store dedupes, counts, exports, and rate-limits across instances', async () => {
+  const data = new Map(), lists = new Map(), sets = new Map()
+  const fakeFetch = async (_url, { body }) => ({ ok: true, json: async () => JSON.parse(body).map(([cmd, key, ...args]) => {
+    if (cmd === 'SET') { if (data.has(key)) return { result: null }; data.set(key, args[0]); return { result: 'OK' } }
+    if (cmd === 'RPUSH') { lists.set(key, [...(lists.get(key) || []), args[0]]); return { result: lists.get(key).length } }
+    if (cmd === 'INCR') { data.set(key, String(Number(data.get(key) || 0) + 1)); return { result: Number(data.get(key)) } }
+    if (cmd === 'SADD') { sets.set(key, new Set([...(sets.get(key) || []), args[0]])); return { result: 1 } }
+    if (cmd === 'GET') return { result: data.get(key) ?? null }
+    if (cmd === 'SCARD') return { result: sets.get(key)?.size || 0 }
+    if (cmd === 'LRANGE') return { result: lists.get(key) || [] }
+    if (cmd === 'EXPIRE') return { result: 1 }
+    if (cmd === 'TTL') return { result: 900 }
+    return { error: `unknown ${cmd}` }
+  }) })
+  const store = createRedisStore({ url: 'https://redis.example', token: 't' }, { fetch: fakeFetch })
+  assert.deepEqual(await store.add({ email: 'a@example.com', track: 'walker', city: 'Accra' }), { duplicate: false })
+  assert.deepEqual(await store.add({ email: 'a@example.com', track: 'walker', city: 'Accra' }), { duplicate: true })
+  await store.add({ email: 'a@example.com', track: 'business', businessName: 'Cafe', city: 'accra' })
+  assert.deepEqual(await store.stats(), { walkers: 1, businesses: 1, cities: 1 })
+  assert.equal((await store.all()).length, 2)
+  const limit = store.limiter(2, 900)
+  assert.equal((await limit('1.2.3.4')).limited, false); assert.equal((await limit('1.2.3.4')).limited, false)
+  assert.deepEqual(await limit('1.2.3.4'), { limited: true, retryAfter: 900 })
+})
+test('vercel-style service waits for emails and returns the same responses as the Node server', async () => {
+  const sent = []
+  const service = createSignupService({ store: { add: async () => ({ duplicate: false }) }, notify: Object.assign(async (lead) => { await new Promise(r => setTimeout(r, 20)); sent.push(lead.email) }, { enabled: true, confirmations: true }), publicOrigin: 'https://walkablesite.vercel.app', waitForEmails: true })
+  const call = (body, origin = 'https://walkablesite.vercel.app') => service.submit({ origin, host: 'walkablesite.vercel.app', contentType: 'application/json', ip: '1.1.1.1', readBody: async () => JSON.stringify(body) })
+  const ok = await call(valid)
+  assert.deepEqual(ok, { status: 200, body: { success: true, duplicate: false, confirmationEmail: true } })
+  assert.deepEqual(sent, ['walker@example.com'], 'emails finished before the response')
+  assert.equal((await call(valid, 'https://evil.example')).status, 403)
+  assert.equal((await call({ ...valid, email: 'nope' })).status, 422)
 })
