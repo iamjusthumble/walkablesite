@@ -8,11 +8,12 @@
     "build": "vite build && vite build --ssr src/entry-server.jsx --outDir dist-ssr && node scripts/prerender.js",
     "lint": "oxlint",
     "preview": "vite preview",
-    "start": "node server/index.js",
+    "start": "node --env-file-if-exists=.env server/index.js",
     "test": "node --test server/waitlist.test.js",
     "export:waitlist": "node scripts/export-waitlist.js"
   },
   "dependencies": {
+    "nodemailer": "^10.0.16",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },

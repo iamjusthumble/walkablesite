@@ -10,8 +10,8 @@ const server = createServer(async (req, res) => {
   if (!['GET', 'HEAD'].includes(req.method)) { res.writeHead(405); return res.end('Method not allowed') }
   try {
     let pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname)
-    if (pathname === '/') pathname = '/index.html'
-    else if (['/privacy', '/terms', '/press'].includes(pathname)) pathname += '/index.html'
+    // Clean URLs (/faq, /for-business, /privacy, …) are pre-rendered as <path>/index.html.
+    if (!extname(pathname)) pathname = `${pathname.replace(/\/$/, '')}/index.html`
     const file = resolve(root, `.${pathname}`)
     if (!file.startsWith(root + sep)) { res.writeHead(403); return res.end('Forbidden') }
     const content = await readFile(file)

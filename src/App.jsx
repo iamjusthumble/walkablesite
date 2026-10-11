@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import './App.css'
 import { faqs } from './faqs.js'
+import { sectionById, sectionByPath, navSections } from './sections.js'
+import { socials } from './socials.js'
 import { mountOrb } from './orbs.js'
 import logoStacked from './assets/Logo1.png'
 import logoWordmark from './assets/Logo2.png'
@@ -30,17 +32,15 @@ function Icon({ name, size = 24, ...props }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>{paths[name] || paths.walk}</svg>
 }
 // Official Walkable logos: horizontal wordmark for the header, stacked logo with the shoe-print mark for the footer.
-function Brand({ stacked = false }) { return <a href="/" className={`brand ${stacked ? 'brand-stacked' : ''}`}><img src={stacked ? logoStacked : logoWordmark} alt="Walkable home" width={stacked ? 299 : 298} height={stacked ? 322 : 106}/></a> }
+function Brand({ stacked = false, ...link }) { return <a href="/" {...link} className={`brand ${stacked ? 'brand-stacked' : ''}`}><img src={stacked ? logoStacked : logoWordmark} alt="Walkable home" width={stacked ? 299 : 298} height={stacked ? 322 : 106}/></a> }
 function trackEvent(name, props = {}) { window.dispatchEvent(new CustomEvent('walkable:analytics', { detail: { name, props } })); if (window.plausible) window.plausible(name, { props }) }
 
 // Optional public details. Each is hidden until its approved value is set at build time.
 const env = import.meta.env
 const contactEmail = env.VITE_CONTACT_EMAIL || ''
-const socials = [['Instagram', env.VITE_SOCIAL_INSTAGRAM], ['TikTok', env.VITE_SOCIAL_TIKTOK], ['LinkedIn', env.VITE_SOCIAL_LINKEDIN], ['X', env.VITE_SOCIAL_X]].filter(([, url]) => url)
 // Social proof (PRD 9.5). Add only real, approved content; empty lists stay hidden.
 const testimonials = [] // [{ quote, name, role }]
 
-const links = [['how-it-works', 'How it works'], ['features', 'Features'], ['for-business', 'For business'], ['faq', 'FAQ']]
 // [photo, orb state, title, description, photo alt]
 const steps = [
   ['discover', 'searching', 'Discover a nearby challenge', 'Browse walking routes sponsored by brands and local businesses near you.', 'A smiling woman checks her phone while walking down a sunny street'],
@@ -73,6 +73,7 @@ function WaitlistForm({ initialTrack = 'walker', context = 'in-page' }) {
   const [state, setState] = useState('idle')
   const [message, setMessage] = useState('')
   const [copied, setCopied] = useState(false)
+  const [confirmationSent, setConfirmationSent] = useState(false)
   const formRef = useRef(null)
   const started = useRef(false)
   useEffect(() => {
@@ -106,6 +107,7 @@ function WaitlistForm({ initialTrack = 'walker', context = 'in-page' }) {
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw Object.assign(new Error(data.message || 'Something went wrong. Please try again.'), { status: res.status })
       setState(data.duplicate ? 'duplicate' : 'success')
+      setConfirmationSent(!!data.confirmationEmail)
       trackEvent('waitlist_submit_success', { track, city: values.city.trim(), duplicate: !!data.duplicate })
     } catch (err) { setState('error'); setMessage(err.message === 'Failed to fetch' ? 'We couldn’t connect. Please check your connection and try again.' : err.message); trackEvent('waitlist_submit_error', { error_type: err.status ? `http_${err.status}` : 'network', track }) }
   }
@@ -117,7 +119,7 @@ function WaitlistForm({ initialTrack = 'walker', context = 'in-page' }) {
       await navigator.clipboard.writeText(url); setCopied(true); trackEvent('waitlist_share', { method: 'copy', track })
     } catch (err) { if (err?.name !== 'AbortError') setMessage(`Share this link with a friend: ${url}`) }
   }
-  if (state === 'success' || state === 'duplicate') return <div className="success-state" role="status" aria-live="polite"><span className="success-icon"><Icon name="check" size={34}/></span><p className="eyebrow">YOUR NEXT CHAPTER STARTS HERE</p><h3>{state === 'duplicate' ? 'You’re already on the list!' : 'You’re on the list.'}</h3><p>{state === 'duplicate' ? 'Good news: we already have your spot saved. Nothing else to do.' : track === 'business' ? 'Your business is on the Founding Vendor list. We’ll reach out personally as the cohort opens in your city.' : 'A little more fresh air. A little more to look forward to. We’ll email you when access opens in your area.'}</p><button type="button" className="button button-primary" onClick={share}>{copied ? 'Link copied!' : 'Share with a friend'}<Icon name={copied ? 'check' : 'heart'} size={18}/></button>{message && <p className="share-fallback">{message}</p>}</div>
+  if (state === 'success' || state === 'duplicate') return <div className="success-state" role="status" aria-live="polite"><span className="success-icon"><Icon name="check" size={34}/></span><p className="eyebrow">YOUR NEXT CHAPTER STARTS HERE</p><h3>{state === 'duplicate' ? 'You’re already on the list!' : 'You’re on the list.'}</h3><p>{state === 'duplicate' ? 'Good news: we already have your spot saved. Nothing else to do.' : track === 'business' ? 'Your business is on the Founding Vendor list. We’ll reach out personally as the cohort opens in your city.' : 'A little more fresh air. A little more to look forward to. We’ll email you when access opens in your area.'}</p>{confirmationSent && <p className="confirmation-note"><Icon name="mail" size={16}/>We’ve sent a confirmation to {values.email.trim()}.</p>}<button type="button" className="button button-primary" onClick={share}>{copied ? 'Link copied!' : 'Share with a friend'}<Icon name={copied ? 'check' : 'heart'} size={18}/></button>{message && <p className="share-fallback">{message}</p>}</div>
   return <form ref={formRef} className="waitlist-form" onSubmit={submit} onFocus={markStarted} noValidate aria-label={track === 'walker' ? 'Walker waitlist' : 'Business waitlist'}>
     <div className="track-toggle" role="group" aria-label="Choose your waitlist"><button type="button" aria-pressed={track === 'walker'} className={track === 'walker' ? 'selected' : ''} onClick={() => switchTrack('walker')}><Icon name="walk" size={19}/>I’m a walker</button><button type="button" aria-pressed={track === 'business'} className={track === 'business' ? 'selected' : ''} onClick={() => switchTrack('business')}><Icon name="shop" size={19}/>I’m a business</button></div>
     <div className="form-heading"><h3>{track === 'walker' ? 'Good things are a walk away.' : 'Meet your next regulars.'}</h3><p>{track === 'walker' ? 'Be first to know when Walkable lands near you.' : 'Join the free Founding Vendor early access list. Takes under a minute.'}</p></div>
@@ -190,21 +192,58 @@ function Proof() {
     {testimonials.length > 0 && <div className="testimonials">{testimonials.map(t => <figure key={t.name}><blockquote>“{t.quote}”</blockquote><figcaption><strong>{t.name}</strong>{t.role}</figcaption></figure>)}</div>}
   </section>
 }
+// In-page routing: each section has a clean URL (see sections.js).
+let autoScrollUntil = 0 // while a click-triggered scroll runs, scroll tracking leaves the URL alone
+function scrollToSection(id, { push = true, smooth = true } = {}) {
+  const section = sectionById[id], el = id === 'home' ? document.body : document.getElementById(id)
+  if (!section || !el) return false
+  if (push && window.location.pathname !== section.path) window.history.pushState({ section: id }, '', section.path)
+  document.title = section.title
+  const instant = !smooth || window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  autoScrollUntil = Date.now() + (instant ? 100 : 1200)
+  if (id === 'home') window.scrollTo({ top: 0, behavior: instant ? 'instant' : 'smooth' })
+  else el.scrollIntoView({ behavior: instant ? 'instant' : 'smooth' })
+  return true
+}
+function followScroll(section) {
+  if (Date.now() < autoScrollUntil || window.location.pathname === section.path) return
+  window.history.replaceState({ section: section.id }, '', section.path)
+  document.title = section.title
+}
 function App({ pagePath } = {}) {
   const [menu, setMenu] = useState(false)
   const [modal, setModal] = useState(null)
-  const [active, setActive] = useState('')
+  // The address the page was opened at; in-page navigation changes the URL without re-rendering routes.
+  const [path] = useState(() => pagePath || (typeof window !== 'undefined' ? window.location.pathname.replace(/(.)\/$/, '$1') : '/'))
+  const [active, setActive] = useState(sectionByPath[path]?.id || '')
   const [pageTrack, setPageTrack] = useState('walker')
-  const path = pagePath || (typeof window !== 'undefined' ? window.location.pathname : '/')
   const open = (track = 'walker', location = 'hero') => { setModal(track); setMenu(false); trackEvent('cta_click', { location, track }) }
+  const goTo = (id) => { if (scrollToSection(id)) { setActive(id); setMenu(false) } }
+  // Real hrefs keep links crawlable and openable in a new tab; plain clicks scroll in place.
+  const sectionLink = (id, onClick) => ({ href: sectionById[id].path, onClick: (e) => { onClick?.(); if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return; e.preventDefault(); goTo(id) } })
   const goToWaitlist = (track = 'walker', location = 'hero') => {
-    setPageTrack(track); setMenu(false); trackEvent('cta_click', { location, track })
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    requestAnimationFrame(() => { document.getElementById('waitlist')?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth' }); document.querySelector('#waitlist input[type="email"]')?.focus({ preventScroll: true }) })
+    setPageTrack(track); trackEvent('cta_click', { location, track })
+    requestAnimationFrame(() => { goTo('waitlist'); document.querySelector('#waitlist input[type="email"]')?.focus({ preventScroll: true }) })
   }
   useEffect(() => {
-    trackEvent('page_view', { referrer: document.referrer, device_type: window.innerWidth < 768 ? 'mobile' : window.innerWidth <= 1024 ? 'tablet' : 'desktop' })
-    const observer = new IntersectionObserver(entries => entries.forEach(e => { if (e.isIntersecting) setActive(e.target.id) }), { rootMargin: '-20% 0px -55% 0px' })
+    if (sectionByPath[path] === undefined) return
+    // Old /#faq links move to /faq; a section URL opens scrolled to its section.
+    const legacy = sectionById[window.location.hash.slice(1)]
+    const start = legacy || sectionByPath[path]
+    if (window.location.pathname + window.location.hash !== start.path) window.history.replaceState({ section: start.id }, '', start.path)
+    if (start.id !== 'home') scrollToSection(start.id, { push: false, smooth: false })
+    trackEvent('page_view', { path: start.path, referrer: document.referrer, device_type: window.innerWidth < 768 ? 'mobile' : window.innerWidth <= 1024 ? 'tablet' : 'desktop' })
+    const onPop = () => { const s = sectionByPath[window.location.pathname]; if (s) scrollToSection(s.id, { push: false }) }
+    const onHash = () => { const s = sectionById[window.location.hash.slice(1)]; if (s) { window.history.replaceState({ section: s.id }, '', s.path); scrollToSection(s.id, { push: false }) } }
+    window.addEventListener('popstate', onPop)
+    window.addEventListener('hashchange', onHash)
+    // As the reader scrolls, keep the address bar and title on the section in view.
+    const observer = new IntersectionObserver(entries => entries.forEach(e => {
+      if (!e.isIntersecting) return
+      setActive(e.target.id)
+      const section = sectionById[e.target.id]
+      if (section) followScroll(section)
+    }), { rootMargin: '-20% 0px -55% 0px' })
     document.querySelectorAll('main section[id]').forEach(el => observer.observe(el))
     // Only animate sections that start below the fold, so pre-rendered content never flashes.
     const reveal = new IntersectionObserver(entries => entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('revealed'); reveal.unobserve(e.target) } }), { threshold: 0.08 })
@@ -214,15 +253,15 @@ function App({ pagePath } = {}) {
     if (waitlist) depth.observe(waitlist)
     const onKey = e => { if (e.key === 'Escape') setMenu(false) }
     window.addEventListener('keydown', onKey)
-    return () => { observer.disconnect(); reveal.disconnect(); depth.disconnect(); window.removeEventListener('keydown', onKey) }
-  }, [])
+    return () => { observer.disconnect(); reveal.disconnect(); depth.disconnect(); window.removeEventListener('keydown', onKey); window.removeEventListener('popstate', onPop); window.removeEventListener('hashchange', onHash) }
+  }, [path])
   if (['/privacy', '/terms', '/press'].includes(path)) return <div className="legal-page"><Brand/><a className="back-link" href="/">← Back to Walkable</a><p className="eyebrow">WALKABLE · PRE-LAUNCH</p><h1>{path === '/privacy' ? 'Privacy policy' : path === '/terms' ? 'Terms of service' : 'Press & media'}</h1><p>{path === '/press' ? 'Our press kit is being prepared. Explore the website for a first look at Walkable and the product.' : 'This page is being prepared for public launch. Final legal terms have not yet been published.'}</p><p>{path === '/privacy' ? 'The waitlist collects the details you submit, your chosen walker or business track, and your consent preference so the Walkable team can manage early access. No advertising trackers are installed on this website.' : 'Launch availability and details will be shared with waitlist members as they are confirmed.'}</p>{contactEmail && <p>Questions? Email <a className="inline-link" href={`mailto:${contactEmail}`}>{contactEmail}</a>.</p>}<a className="button button-primary" href="/">Explore Walkable</a></div>
   return <>
     <a className="skip-link" href="#main">Skip to content</a>
-    <header className="site-header"><div className="nav-wrap"><Brand/><nav id="site-nav" className={menu ? 'navigation open' : 'navigation'} aria-label="Main navigation">{links.map(([id, label]) => <a key={id} href={`#${id}`} className={active === id ? 'active' : ''} aria-current={active === id ? 'true' : undefined} onClick={() => setMenu(false)}>{label}</a>)}<button type="button" className="mobile-signup button button-primary" onClick={() => open('walker', 'nav')}>Join the waitlist</button></nav><div className="nav-actions"><button type="button" className="button button-primary nav-cta" onClick={() => open('walker', 'nav')}>Join the waitlist<Icon name="arrow" size={17}/></button></div><button type="button" className="menu-button" aria-expanded={menu} aria-controls="site-nav" aria-label={menu ? 'Close navigation' : 'Open navigation'} onClick={() => setMenu(!menu)}><Icon name={menu ? 'close' : 'menu'}/></button></div></header>
+    <header className="site-header"><div className="nav-wrap"><Brand {...sectionLink('home')}/><nav id="site-nav" className={menu ? 'navigation open' : 'navigation'} aria-label="Main navigation">{navSections.map(({ id, label }) => <a key={id} {...sectionLink(id)} className={active === id ? 'active' : ''} aria-current={active === id ? 'true' : undefined}>{label}</a>)}<button type="button" className="mobile-signup button button-primary" onClick={() => open('walker', 'nav')}>Join the waitlist</button></nav><div className="nav-actions"><button type="button" className="button button-primary nav-cta" onClick={() => open('walker', 'nav')}>Join the waitlist<Icon name="arrow" size={17}/></button></div><button type="button" className="menu-button" aria-expanded={menu} aria-controls="site-nav" aria-label={menu ? 'Close navigation' : 'Open navigation'} onClick={() => setMenu(!menu)}><Icon name={menu ? 'close' : 'menu'}/></button></div></header>
     <main id="main">
-      <section className="hero-section" aria-labelledby="hero-title">
-        <div className="hero-grid container"><div className="hero-copy"><div className="launch-label"><span className="label-symbol">✳</span>Early access waitlist now open</div><h1 id="hero-title">Your everyday<br/>walk. <span>Now with<br/>extra good.</span></h1><p className="hero-description">Pick a walking challenge from a local business, walk it with live GPS tracking, and redeem a real reward like your next coffee.</p><div className="hero-actions"><button type="button" className="button button-primary" onClick={() => goToWaitlist('walker', 'hero')}>Join the waitlist<Icon name="arrow" size={20}/></button><a className="button button-ghost" href="#for-business" onClick={() => trackEvent('cta_click', { location: 'hero', track: 'business' })}><Icon name="shop" size={18}/>I’m a business</a></div><p className="hero-note"><Icon name="check" size={15}/>Free to join. For walkers and local businesses.</p></div>
+      <section id="home" className="hero-section" aria-labelledby="hero-title">
+        <div className="hero-grid container"><div className="hero-copy"><div className="launch-label"><span className="label-symbol">✳</span>Early access waitlist now open</div><h1 id="hero-title">Your everyday<br/>walk. <span>Now with<br/>extra good.</span></h1><p className="hero-description">Pick a walking challenge from a local business, walk it with live GPS tracking, and redeem a real reward like your next coffee.</p><div className="hero-actions"><button type="button" className="button button-primary" onClick={() => goToWaitlist('walker', 'hero')}>Join the waitlist<Icon name="arrow" size={20}/></button><a className="button button-ghost" {...sectionLink('for-business', () => trackEvent('cta_click', { location: 'hero', track: 'business' }))}><Icon name="shop" size={18}/>I’m a business</a></div><p className="hero-note"><Icon name="check" size={15}/>Free to join. For walkers and local businesses.</p></div>
         <div className="hero-visual"><Orb state="searching" size={560} palette="soft" className="hero-orb"/><span className="visual-spark spark-one" aria-hidden="true">✳</span><span className="visual-spark spark-two" aria-hidden="true">✦</span><div className="hero-phone-wrap"><Phone eager alt="Walkable home screen showing weekly walking progress and nearby challenges"/><span className="phone-caption">A peek at the app · sample data</span></div><div className="floating-card reward-card" aria-hidden="true"><span className="coffee-icon"><Icon name="coffee" size={31}/></span><div><span className="tiny-label">EXAMPLE CHALLENGE</span><strong>Walk 2 km.<br/>Get a free latte.</strong></div><span className="reward-check"><Icon name="check" size={14}/></span></div><div className="floating-card progress-card" aria-hidden="true"><div className="mini-ring"><Icon name="walk" size={22}/></div><div><strong>One step closer.</strong><span>Your reward unlocks at the finish.</span></div></div><span className="hand-note" aria-hidden="true">less scrolling,<br/>more strolling.<svg viewBox="0 0 80 44"><path d="M2 3c45-3 63 12 58 35m-9-9 9 9 10-9"/></svg></span></div></div>
         <ul className="hero-bottom container" aria-label="Walkable at a glance"><li><Icon name="shop" size={19}/>Challenges from local spots</li><li className="divider-star" aria-hidden="true">✳</li><li><Icon name="shield" size={19}/>GPS-verified walks</li><li className="divider-star" aria-hidden="true">✳</li><li><Icon name="gift" size={19}/>Real vouchers, no points</li><li className="hero-bottom-note">FOUNDING VENDOR COHORT NOW OPEN</li></ul>
       </section>
@@ -238,7 +277,7 @@ function App({ pagePath } = {}) {
       <section id="faq" className="faq-section section-pad" aria-labelledby="faq-title"><div className="container faq-layout"><div><p className="eyebrow">A FEW THINGS YOU MIGHT BE WONDERING</p><h2 id="faq-title">Good questions.<br/><span>Straight answers.</span></h2><p>Still curious? {contactEmail ? <>Email us at <a className="inline-link" href={`mailto:${contactEmail}`}>{contactEmail}</a>.</> : 'Join the waitlist and we’ll keep you posted.'}</p></div><div className="faq-list">{faqs.map(([q, a], i) => <details key={q} onToggle={e => { if (e.currentTarget.open) trackEvent('faq_expand', { question_id: i }) }}><summary>{q}<Icon name="plus" size={19}/></summary><p>{a}</p></details>)}</div></div></section>
       <section className="closing-banner" aria-label="Join the waitlist"><div className="container"><p><Orb state="listening" size={56} className="closing-orb"/>Good things are out there.</p><button type="button" onClick={() => open('walker', 'footer')}>Let’s walk.<Icon name="arrow" size={36}/></button></div></section>
     </main>
-    <footer className="site-footer container"><div className="footer-top"><div><Brand stacked/><p>A little movement. A lot of good.</p>{(contactEmail || socials.length > 0) && <div className="footer-contact">{contactEmail && <a href={`mailto:${contactEmail}`}><Icon name="mail" size={16}/>{contactEmail}</a>}{socials.map(([name, url]) => <a key={name} href={url} rel="noopener noreferrer" target="_blank">{name}</a>)}</div>}</div><nav aria-label="Footer navigation">{links.map(([id, label]) => <a key={id} href={`#${id}`}>{label}</a>)}<button type="button" onClick={() => open('walker', 'footer')}>Join the waitlist</button></nav></div><div className="footer-bottom"><span>© {new Date().getFullYear()} Walkable. Made for the everyday adventure.</span><div><a href="/privacy">Privacy policy</a><a href="/terms">Terms of service</a><a href="/press">Press</a><span className="footer-signoff">See you out there. <Icon name="walk" size={16}/></span></div></div></footer>
+    <footer className="site-footer container"><div className="footer-top"><div><Brand stacked {...sectionLink('home')}/><p>A little movement. A lot of good.</p><div className="footer-social"><p id="follow-title">Follow Walkable</p><ul aria-labelledby="follow-title">{socials.map(({ name, url, path }) => <li key={name}><a href={url} target="_blank" rel="noopener noreferrer" aria-label={`Walkable on ${name} (opens in a new tab)`} title={name} onClick={() => trackEvent('social_click', { network: name })}><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d={path} fill="currentColor"/></svg></a></li>)}</ul></div>{contactEmail && <div className="footer-contact"><a href={`mailto:${contactEmail}`}><Icon name="mail" size={16}/>{contactEmail}</a></div>}</div><nav aria-label="Footer navigation">{navSections.map(({ id, label }) => <a key={id} {...sectionLink(id)}>{label}</a>)}<button type="button" onClick={() => open('walker', 'footer')}>Join the waitlist</button></nav></div><div className="footer-bottom"><span>© {new Date().getFullYear()} Walkable. Made for the everyday adventure.</span><div><a href="/privacy">Privacy policy</a><a href="/terms">Terms of service</a><a href="/press">Press</a><span className="footer-signoff">See you out there. <Icon name="walk" size={16}/></span></div></div></footer>
     {modal && <Modal track={modal} close={() => setModal(null)}/>}
   </>
 }

@@ -1,8 +1,9 @@
 import { DatabaseSync } from 'node:sqlite'
 import { mkdirSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
+import { createSignupNotifier } from './notify.js'
 
-export function createWaitlistHandler({ databasePath = process.env.WAITLIST_DB || resolve('data/waitlist.sqlite'), rateLimit = 8, windowMs = 15 * 60 * 1000, momentumThreshold = 0 } = {}) {
+export function createWaitlistHandler({ databasePath = process.env.WAITLIST_DB || resolve('data/waitlist.sqlite'), rateLimit = 8, windowMs = 15 * 60 * 1000, momentumThreshold = 0, notify = createSignupNotifier() } = {}) {
   if (databasePath !== ':memory:') mkdirSync(dirname(databasePath), { recursive: true, mode: 0o700 })
   const db = new DatabaseSync(databasePath)
   db.exec(`PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS leads (
@@ -60,8 +61,13 @@ export function createWaitlistHandler({ databasePath = process.env.WAITLIST_DB |
       if (track === 'business' && (!clean('businessName') || !clean('city') || !['Food & Drink', 'Retail', 'Fitness', 'Other'].includes(clean('category')))) return respond(res, 422, { message: 'Please enter your business name, category, and city.' })
       const rawTraffic = clean('footTraffic')
       if (track === 'business' && rawTraffic && (!/^\d+$/.test(rawTraffic) || Number(rawTraffic) > 100000000)) return respond(res, 422, { message: 'Please enter a valid monthly foot traffic estimate.' })
-      const result = insert.run(email, track, track === 'walker' ? clean('firstName') : '', clean('city'), track === 'business' ? clean('businessName') : '', track === 'business' ? clean('category') : '', track === 'business' && rawTraffic ? Number(rawTraffic) : null, 1, 'I’d like to receive updates about Walkable.', new Date().toISOString())
-      return respond(res, 200, { success: true, duplicate: result.changes === 0 })
+      const createdAt = new Date().toISOString()
+      const lead = { email, track, firstName: track === 'walker' ? clean('firstName') : '', city: clean('city'), businessName: track === 'business' ? clean('businessName') : '', category: track === 'business' ? clean('category') : '', footTraffic: track === 'business' && rawTraffic ? Number(rawTraffic) : null, createdAt }
+      const result = insert.run(lead.email, lead.track, lead.firstName, lead.city, lead.businessName, lead.category, lead.footTraffic, 1, 'I’d like to receive updates about Walkable.', createdAt)
+      const duplicate = result.changes === 0
+      // Email the team about new signups only; the visitor doesn't wait for it.
+      if (!duplicate) notify(lead).catch(() => {})
+      return respond(res, 200, { success: true, duplicate, confirmationEmail: !duplicate && !!notify.enabled && notify.confirmations !== false })
     } catch (err) {
       console.error('Waitlist storage error:', err.code || err.name)
       if (!res.headersSent) respond(res, 500, { message: 'We couldn’t save your spot just now. Please try again shortly.' })
