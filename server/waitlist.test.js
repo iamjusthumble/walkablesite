@@ -5,7 +5,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createWaitlistHandler as createHandler } from './waitlist.js'
-import { createSignupNotifier } from './notify.js'
+import { createSignupNotifier, createResendTransport } from './notify.js'
 import { createRedisStore } from './redis-store.js'
 import { createSignupService } from './signup.js'
 const createWaitlistHandler = (opts = {}) => createHandler({ notify: async () => false, ...opts })
@@ -95,6 +95,25 @@ test('each new signup emails the team and sends the person a confirmation', asyn
   assert.equal(walker.subject, 'You’re on the Walkable waitlist')
   assert.match(walker.text, /^Hi Erica,/)
   assert.match(walker.text, /in your area/)
+})
+test('emails go through the Resend API with the configured sender, and failures never leak the key', async () => {
+  const calls = []
+  const fetch = async (url, init) => { calls.push({ url, init, body: JSON.parse(init.body) }); return Response.json({ id: 'email_1' }) }
+  const notify = createSignupNotifier({ env: { EMAIL_FROM: 'Walkable <hello@walkableofficial.com>' }, transport: createResendTransport('re_secret', { fetch }) })
+  assert.deepEqual(await notify({ email: 'erica@example.com', track: 'walker', firstName: 'Erica', createdAt: '' }), { team: true, confirmation: true })
+  assert.ok(calls.every(c => c.url === 'https://api.resend.com/emails' && c.init.method === 'POST' && c.init.headers.Authorization === 'Bearer re_secret'))
+  const team = calls.find(c => c.body.to[0] === 'walkableofficial@gmail.com').body
+  const confirmation = calls.find(c => c.body.to[0] === 'erica@example.com').body
+  assert.equal(team.from, 'Walkable <hello@walkableofficial.com>')
+  assert.equal(team.reply_to, 'erica@example.com')
+  assert.equal(confirmation.reply_to, 'walkableofficial@gmail.com')
+  assert.equal(confirmation.subject, 'You’re on the Walkable waitlist')
+  assert.match(confirmation.html, /Hi Erica,/)
+  const rejecting = createResendTransport('re_secret', { fetch: async () => Response.json({ name: 'validation_error', message: 'Invalid `from` field for erica@example.com' }, { status: 422 }) })
+  await assert.rejects(rejecting.sendMail({ to: 'erica@example.com' }), (err) => err.code === 'validation_error (HTTP 422)' && !/re_secret|erica/.test(err.code + err.message))
+  const offline = createResendTransport('re_secret', { fetch: async () => { throw new TypeError('fetch failed') } })
+  await assert.rejects(offline.sendMail({ to: 'a@example.com' }), { code: 'ENETWORK' })
+  assert.equal(createSignupNotifier({ env: {} }).enabled, false, 'no key: emails are off, signups still work')
 })
 test('confirmations can be turned off, failures are reported, and the API flags when one was sent', async () => {
   const mails = []

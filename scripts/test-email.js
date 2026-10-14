@@ -1,12 +1,10 @@
-// Checks the SMTP settings in .env and sends one sample team alert plus one sample confirmation.
+// Sends one sample team alert plus one sample confirmation through Resend, using RESEND_API_KEY and EMAIL_FROM from .env.
 // Usage: npm run email:test            (confirmation goes to the team address)
 //        npm run email:test -- you@x.com (confirmation goes to that address instead)
 import { createSignupNotifier, DEFAULT_NOTIFY_EMAIL } from '../server/notify.js'
 const notify = createSignupNotifier()
-if (!notify.enabled) { console.error('Email is off: set SMTP_USER and SMTP_PASS in .env first.'); process.exit(1) }
-try { await notify.verify(); console.log('Signed in to the mail server.') }
-catch (err) { console.error(`Could not sign in to the mail server (${err.code || err.message}). For Gmail, use a Google App Password, not the account password.`); process.exit(1) }
+if (!notify.enabled) { console.error('Email is off: set RESEND_API_KEY (and EMAIL_FROM) in .env first.'); process.exit(1) }
 const to = process.argv[2] || process.env.WAITLIST_NOTIFY_EMAIL || DEFAULT_NOTIFY_EMAIL
 const result = await notify({ email: to, track: 'walker', firstName: 'Test', city: 'Accra', createdAt: new Date().toISOString() })
-console.log(result.team && result.confirmation ? `Sent: a team alert to ${process.env.WAITLIST_NOTIFY_EMAIL || DEFAULT_NOTIFY_EMAIL} and a confirmation to ${to}. Check the inbox (and spam).` : `Something failed: ${JSON.stringify(result)}`)
+console.log(result.team && result.confirmation ? `Sent: a team alert to ${process.env.WAITLIST_NOTIFY_EMAIL || DEFAULT_NOTIFY_EMAIL} and a confirmation to ${to}. Check the inbox (and spam), and the Resend dashboard's Emails log.` : `Something failed: ${JSON.stringify(result)}. The error above names the Resend error; check the API key and that EMAIL_FROM uses the verified domain.`)
 process.exit(result.team && result.confirmation ? 0 : 1)

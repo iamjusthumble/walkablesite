@@ -1,6 +1,6 @@
-import nodemailer from 'nodemailer'
-
 export const DEFAULT_NOTIFY_EMAIL = 'walkableofficial@gmail.com'
+export const DEFAULT_FROM = 'Walkable <hello@walkableofficial.com>'
+const RESEND_URL = 'https://api.resend.com/emails'
 
 const oneLine = (v) => String(v ?? '').replace(/[\r\n]+/g, ' ').trim()
 const escapeHtml = (v) => oneLine(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])
@@ -51,28 +51,42 @@ ${p('See you out there,')}<p style="margin:-12px 0 0;font-size:16px;color:#3d2e4
   return { subject, text, html }
 }
 
+// Sends one message through Resend's HTTP API. Runs only on the server: the key
+// never reaches the browser. Errors carry only Resend's error name and HTTP status.
+export function createResendTransport(apiKey, { fetch: fetchImpl = globalThis.fetch, timeoutMs = 10000 } = {}) {
+  return {
+    async sendMail({ from, to, replyTo, subject, text, html }) {
+      let res
+      try {
+        res = await fetchImpl(RESEND_URL, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ from, to: [to], subject, text, ...(html && { html }), ...(replyTo && { reply_to: replyTo }) }),
+          // Fail fast so a slow API can't hold up a signup (Vercel functions wait for the send).
+          signal: AbortSignal.timeout(timeoutMs),
+        })
+      } catch (err) { throw Object.assign(new Error('Resend request failed'), { code: err.name === 'TimeoutError' ? 'ETIMEDOUT' : 'ENETWORK' }) }
+      if (res.ok) return res.json().catch(() => ({}))
+      const body = await res.json().catch(() => ({}))
+      throw Object.assign(new Error('Resend rejected the email'), { code: `${typeof body.name === 'string' ? body.name : 'resend_error'} (HTTP ${res.status})` })
+    },
+  }
+}
+
 // Sends the team alert and the person's confirmation for each new signup.
 // The lead is saved before this runs, so a mail failure is logged and never
-// loses a signup. With no SMTP credentials configured it sends nothing.
+// loses a signup. With no RESEND_API_KEY configured it sends nothing.
 export function createSignupNotifier({ env = process.env, transport } = {}) {
   const team = env.WAITLIST_NOTIFY_EMAIL || DEFAULT_NOTIFY_EMAIL
-  const user = env.SMTP_USER?.trim()
-  const pass = env.SMTP_PASS?.replace(/\s+/g, '') // Google shows app passwords in groups of four
-  const mailer = transport || (user && pass ? nodemailer.createTransport({
-    host: env.SMTP_HOST || 'smtp.gmail.com',
-    port: Number(env.SMTP_PORT || 465),
-    secure: Number(env.SMTP_PORT || 465) === 465,
-    auth: { user, pass },
-    // Fail fast so a slow mail server can't hold up a signup (Vercel functions wait for the send).
-    connectionTimeout: 10000, greetingTimeout: 10000, socketTimeout: 15000,
-  }) : null)
+  const apiKey = env.RESEND_API_KEY?.trim()
+  const mailer = transport || (apiKey ? createResendTransport(apiKey) : null)
   if (!mailer) {
-    console.warn(`Waitlist emails are off: set SMTP_USER and SMTP_PASS to email new signups to ${team} and send confirmations.`)
+    console.warn(`Waitlist emails are off: set RESEND_API_KEY to email new signups to ${team} and send confirmations.`)
     const off = async () => ({ team: false, confirmation: false })
     off.enabled = false
     return off
   }
-  const from = env.MAIL_FROM || `Walkable <${user || team}>`
+  const from = env.EMAIL_FROM?.trim() || DEFAULT_FROM
   const confirmations = env.WAITLIST_CONFIRMATION_EMAILS !== 'off'
   let siteUrl = ''
   try { if (env.PUBLIC_ORIGIN) siteUrl = new URL(env.PUBLIC_ORIGIN).origin } catch { /* invalid origin: send without links */ }
@@ -88,7 +102,6 @@ export function createSignupNotifier({ env = process.env, transport } = {}) {
     return { team: teamSent, confirmation: confirmationSent }
   }
   notify.enabled = true
-  notify.verify = () => mailer.verify?.()
   notify.confirmations = confirmations
   return notify
 }

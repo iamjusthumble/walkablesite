@@ -20,7 +20,7 @@ PUBLIC_ORIGIN=https://your-approved-domain.example npm run build
 PUBLIC_ORIGIN=https://your-approved-domain.example npm start
 ```
 
-Set `PORT` if needed (default 4173). Deploy the Node server with `dist/`, `server/`, `package.json` and `package-lock.json`, run `npm ci --omit=dev` there (the server needs `nodemailer`), set the same variables as your `.env` (`SMTP_USER`, `SMTP_PASS`, `WAITLIST_NOTIFY_EMAIL`, `PUBLIC_ORIGIN`), and give it a persistent writable volume for `WAITLIST_DB`. Do not deploy only the static bundle if signup capture is required. SQLite is appropriate for a single instance; use a managed database or form service for multi-instance/serverless hosting. Terminate HTTPS at the hosting proxy. Rate limiting uses the socket address and intentionally does not trust arbitrary forwarded headers; configure trusted client-IP handling at the edge before a proxied public launch.
+Set `PORT` if needed (default 4173). Deploy the Node server with `dist/`, `server/`, `package.json` and `package-lock.json`, run `npm ci --omit=dev` there, set the same variables as your `.env` (`RESEND_API_KEY`, `EMAIL_FROM`, `WAITLIST_NOTIFY_EMAIL`, `PUBLIC_ORIGIN`), and give it a persistent writable volume for `WAITLIST_DB`. Do not deploy only the static bundle if signup capture is required. SQLite is appropriate for a single instance; use a managed database or form service for multi-instance/serverless hosting. Terminate HTTPS at the hosting proxy. Rate limiting uses the socket address and intentionally does not trust arbitrary forwarded headers; configure trusted client-IP handling at the edge before a proxied public launch.
 
 The build pre-renders all pages. Setting `PUBLIC_ORIGIN` also emits canonical links, social-image URLs, and a sitemap. Without a confirmed domain these absolute URLs are deliberately omitted. Legal and press stub pages are noindex until approved content replaces them.
 
@@ -28,7 +28,7 @@ The build pre-renders all pages. Setting `PUBLIC_ORIGIN` also emits canonical li
 
 Vercel serves the pre-rendered pages and runs the waitlist API as functions in `api/waitlist/` (`server/index.js` is only for self-hosting). In the Vercel project, under **Settings → Environment Variables**, set for Production:
 
-- `SMTP_USER=walkableofficial@gmail.com`, `SMTP_PASS=<Google App Password>`, `WAITLIST_NOTIFY_EMAIL=walkableofficial@gmail.com`
+- `RESEND_API_KEY=<Resend API key>`, `EMAIL_FROM=Walkable <hello@walkableofficial.com>`, `WAITLIST_NOTIFY_EMAIL=walkableofficial@gmail.com`
 - `PUBLIC_ORIGIN=https://www.walkableofficial.com` (the live domain; walkableofficial.com redirects to it). Signups are only accepted from this address, and it enables the sitemap, canonical links and the logo/share link in emails.
 - Storage: in **Storage → Create Database**, add **Upstash for Redis** (free tier) and connect it to the project; it adds `KV_REST_API_URL` and `KV_REST_API_TOKEN`. Without it, signups are still emailed but not stored, and repeats can't be detected.
 
@@ -46,7 +46,7 @@ The site is one page, but each section has a clean URL: `/how-it-works`, `/featu
 - Server validation, normalized email deduplication per audience, honeypot, 8 requests per 15 minutes per socket address, 8 KB request limit, and same-origin checks.
 - Modal and in-page forms share the same component; inline errors, submission progress, success, duplicate state and copy-link sharing.
 - Every new signup (not duplicates or honeypot hits) is emailed to the team at `walkableofficial@gmail.com` (change with `WAITLIST_NOTIFY_EMAIL`). The email lists the lead's details and sets Reply-To to the person who signed up. The lead is saved first, so a failed email never loses a signup.
-- To turn the emails on, create `.env` from `.env.example` and set `SMTP_USER=walkableofficial@gmail.com` and `SMTP_PASS` to a Google App Password (Google Account → Security → 2-Step Verification → App passwords). Other SMTP providers work via `SMTP_HOST`/`SMTP_PORT`. Without these the site still works and logs that notifications are off.
+- Emails are sent through [Resend](https://resend.com) from the backend only. To turn them on, create `.env` from `.env.example` and set `RESEND_API_KEY` and `EMAIL_FROM=Walkable <hello@walkableofficial.com>` (the domain must be verified in Resend). `npm run email:test -- you@example.com` sends a sample of both emails. Without a key the site still works and logs that notifications are off. Failed sends are logged with Resend's error name and HTTP status only.
 - Each new signup also gets a confirmation email: walkers hear they're on the list and will be emailed when access opens in their city; businesses hear you'll reach out to set up their first challenge. Replies go to the team address. Duplicates get no repeat email. Set `PUBLIC_ORIGIN` so the confirmation includes the logo and a share link. Turn confirmations off with `WAITLIST_CONFIRMATION_EMAILS=off`.
 - These are one-off confirmations, not campaigns. Choose and connect a marketing email platform, with unsubscribe handling, before sending newsletters or launch announcements.
 
